@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC  -fPIC -g -Wall -g -O2 -Werror  -O3 -DNDEBUG  -shared -Wl,-soname,libRedirPlugin.so -o libRedirPlugin.so CMakeFiles/RedirPlugin.dir/RedirPlugin.cc.o 

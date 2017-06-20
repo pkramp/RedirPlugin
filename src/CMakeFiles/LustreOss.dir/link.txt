@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC  -fPIC -g -Wall -g -O2 -Werror  -O3 -DNDEBUG   -shared -Wl,-soname,libLustreOss.so -o libLustreOss.so CMakeFiles/LustreOss.dir/LustreOss.cc.o 

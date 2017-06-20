@@ -1,2 +1,0 @@
-/usr/bin/ar cr libLust.a  CMakeFiles/Lust.dir/lfs.c.o
-/usr/bin/ranlib libLust.a
