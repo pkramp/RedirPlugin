@@ -1,6 +1,5 @@
 #include "RedirPlugin.hh"
 #include <XrdVersion.hh>
-#include <iostream>
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
 //------------------------------------------------------------------------------
@@ -20,6 +19,7 @@ extern "C" XrdCmsClient *XrdCmsGetClient(XrdSysLogger *Logger,
 RedirPlugin::RedirPlugin( XrdSysLogger *Logger, int opMode, int myPort, XrdOss *theSS ) 
                                                       : XrdCmsClient( amLocal ){
     nativeCmsFinder = new XrdCmsFinderRMT( Logger, opMode, myPort );
+    this->theSS = theSS;
     //nativeCmsFinder->setSS( theSS );
 }
 //------------------------------------------------------------------------------
@@ -56,16 +56,17 @@ int RedirPlugin::Locate( XrdOucErrInfo &Resp,
                          int           flags, 
                          XrdOucEnv  *EnvInfo ) { 
     if( EnvInfo->secEnv()->addrInfo->isPrivate() ){ //Client is private
-        //std::cout << "Client is: " << EnvInfo->secEnv()->addrInfo->Name() << std::endl;
-        nativeCmsFinder->Locate( Resp, path, flags, EnvInfo );//get regular target host
+	if( nativeCmsFinder )
+	    nativeCmsFinder->Locate( Resp, path, flags, EnvInfo );//get regular target host
+        int x = 10;
+        char* buff = new char[100];//total acceptable buffer length, which must be longer
+        //than localroot and filename concatenated
+        const char* ppath = theSS->Lfn2Pfn(path, buff, 100, x);
         XrdNetAddr X( 1094 );//port is necessary, but can be any
         X.Set( Resp.getErrText() );
         if( X.Name() ){ //Name must exist
-            //std::cout << "Target is: " << X.Name() << std::endl;
-            //std::cout << "Path is: " << path << std::endl;
             if( X.isPrivate() ) {//now both client and target are private
-            	//std::cout << "Both are private" << std::endl;
-                Resp.setErrInfo( -1, path );
+                Resp.setErrInfo( -1, ppath );
                 return SFS_REDIRECT;
             }
         }

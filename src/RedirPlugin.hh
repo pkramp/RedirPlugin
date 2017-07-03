@@ -6,6 +6,7 @@
 #include <XrdCms/XrdCmsClient.hh>
 #include <XrdSfs/XrdSfsInterface.hh>
 #include <XrdNet/XrdNetAddr.hh>
+#include <XrdOss/XrdOss.hh>
 #include "in/XrdCmsFinder.hh"
 
 
@@ -24,6 +25,7 @@ public:
    //! used to forward requests to CmsFinder with regular implementation
    //---------------------------------------------------------------------------
    XrdCmsClient *nativeCmsFinder;
+   XrdOss *theSS;
 };
 
 #endif // REDIRPLUGIN_HH_
