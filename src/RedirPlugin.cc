@@ -3,37 +3,31 @@
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
 //------------------------------------------------------------------------------
-extern "C" XrdCmsClient *XrdCmsGetClient(XrdSysLogger *Logger,
-                                             int           opMode,
-                                             int           myPort,
-                                             XrdOss       *theSS)
-{
-   //std::cout << "New CmsClient" << std::endl;
-   RedirPlugin *plugin = new RedirPlugin( Logger, opMode, myPort, theSS );
-   return plugin;
+extern "C" XrdCmsClient* XrdCmsGetClient(XrdSysLogger* Logger, int opMode, int myPort,
+                                         XrdOss* theSS) {
+    RedirPlugin* plugin = new RedirPlugin(Logger, opMode, myPort, theSS);
+    return plugin;
 }
 
 //------------------------------------------------------------------------------
 //! Constructor
 //------------------------------------------------------------------------------
-RedirPlugin::RedirPlugin( XrdSysLogger *Logger, int opMode, int myPort, XrdOss *theSS ) 
-                                                      : XrdCmsClient( amLocal ){
-    nativeCmsFinder = new XrdCmsFinderRMT( Logger, opMode, myPort );
+RedirPlugin::RedirPlugin(XrdSysLogger* Logger, int opMode, int myPort, XrdOss* theSS)
+  : XrdCmsClient(amLocal) {
+    nativeCmsFinder = new XrdCmsFinderRMT(Logger, opMode, myPort);
     this->theSS = theSS;
-    //nativeCmsFinder->setSS( theSS );
+    // nativeCmsFinder->setSS( theSS ); necessary?
 }
 //------------------------------------------------------------------------------
 //! Destructor
 //------------------------------------------------------------------------------
-RedirPlugin::~RedirPlugin(){
-   delete nativeCmsFinder;
-}
+RedirPlugin::~RedirPlugin() { delete nativeCmsFinder; }
 
 //------------------------------------------------------------------------------
 //! Configure the nativeCmsFinder
 //------------------------------------------------------------------------------
-int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo){
-    if( nativeCmsFinder )
+int RedirPlugin::Configure(const char* cfn, char* Parms, XrdOucEnv* EnvInfo) {
+    if (nativeCmsFinder)
         return nativeCmsFinder->Configure(cfn, Parms, EnvInfo);
     return 0;
 }
@@ -51,31 +45,29 @@ int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo){
 //! @Param EnvInfo: Contains the secEnv, which contains the addressInfo of the
 //!                 Client. Checked to see if redirect to local conditions apply
 //------------------------------------------------------------------------------
-int RedirPlugin::Locate( XrdOucErrInfo &Resp, 
-                         const char    *path, 
-                         int           flags, 
-                         XrdOucEnv  *EnvInfo ) { 
-    if( EnvInfo->secEnv()->addrInfo->isPrivate() ){ //Client is private
-	if( nativeCmsFinder )
-	    nativeCmsFinder->Locate( Resp, path, flags, EnvInfo );//get regular target host
-        int x = 10;
-        char* buff = new char[100];//total acceptable buffer length, which must be longer
-        //than localroot and filename concatenated
-        const char* ppath = theSS->Lfn2Pfn(path, buff, 100, x);
-        XrdNetAddr X( 1094 );//port is necessary, but can be any
-        X.Set( Resp.getErrText() );
-        if( X.Name() ){ //Name must exist
-            if( X.isPrivate() ) {//now both client and target are private
-                Resp.setErrInfo( -1, ppath );
-                return SFS_REDIRECT;
+int RedirPlugin::Locate(XrdOucErrInfo& Resp, const char* path, int flags, XrdOucEnv* EnvInfo) {
+    if (EnvInfo->secEnv()->addrInfo->isPrivate()) { // Client is private
+        if (nativeCmsFinder)
+            nativeCmsFinder->Locate(Resp, path, flags, EnvInfo); // get regular target host
+        int rc = 10;// figure out exact meaning
+        int maxPathLength = 100;
+        char* buff = new char[maxPathLength]; // total acceptable buffer length, which
+        // must be longer than localroot and filename concatenated
+        const char* ppath = theSS->Lfn2Pfn(path, buff, maxPathLength, rc);
+        XrdNetAddr target(1094); // port is necessary, but can be any
+        target.Set(Resp.getErrText());
+        if (target.Name()) {          // Name must exist
+            if (target.isPrivate()) { // now both client and target are private
+                Resp.setErrInfo(-1, ppath);
+                return SFS_LREDIRECT;
             }
         }
-        return nativeCmsFinder->Locate( Resp, path, flags, EnvInfo );
-    }
-    else {
-        if( nativeCmsFinder )//client is not private, do regular locate
-            return nativeCmsFinder->Locate( Resp, path, flags, EnvInfo );
-        else return 0;//failure
+        return nativeCmsFinder->Locate(Resp, path, flags, EnvInfo);
+    } else {
+        if (nativeCmsFinder) // client is not private, do regular locate
+            return nativeCmsFinder->Locate(Resp, path, flags, EnvInfo);
+        else
+            return 0; // failure
     }
 }
 
@@ -83,8 +75,8 @@ int RedirPlugin::Locate( XrdOucErrInfo &Resp,
 //! Space
 //! Calls nativeCmsFinder->Space
 //------------------------------------------------------------------------------
-int RedirPlugin::Space( XrdOucErrInfo &Resp, const char *path, XrdOucEnv *EnvInfo ){
-   return nativeCmsFinder->Space( Resp, path, EnvInfo );
+int RedirPlugin::Space(XrdOucErrInfo& Resp, const char* path, XrdOucEnv* EnvInfo) {
+    return nativeCmsFinder->Space(Resp, path, EnvInfo);
 }
 
-XrdVERSIONINFO( XrdCmsGetClient, RedirPlugin );
+XrdVERSIONINFO(XrdCmsGetClient, RedirPlugin);
