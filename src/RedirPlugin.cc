@@ -1,5 +1,7 @@
 #include "RedirPlugin.hh"
 #include <XrdVersion.hh>
+
+#include <iostream>
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
 //------------------------------------------------------------------------------
@@ -69,7 +71,7 @@ int RedirPlugin::Locate(XrdOucErrInfo& Resp,
          const char* ppath = theSS->Lfn2Pfn(path, buff, maxPathLength, rc);
          XrdNetAddr target(-1); // port is necessary, but can be any
          target.Set(Resp.getErrText());
-         if(target.Name() && target.isPrivate()) { // Name must exist
+         if(target.isPrivate()) {
             // now both client and target are private
             Resp.setErrInfo(-1, ppath); // set info which will be sent to client
             return SFS_REDIRECT;
