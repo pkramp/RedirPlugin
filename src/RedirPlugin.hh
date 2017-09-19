@@ -8,7 +8,7 @@
 #include <XrdNet/XrdNetAddr.hh>
 #include <XrdOss/XrdOss.hh>
 #include "in/XrdCmsFinder.hh"
-
+#include <XrdCl/XrdClURL.hh>
 
 class RedirPlugin : public XrdCmsClient
 {
