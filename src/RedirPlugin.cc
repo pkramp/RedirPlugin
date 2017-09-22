@@ -1,49 +1,67 @@
-#include <sys/stat.h>
-#include <unistd.h>
+#include "RedirPlugin.hh"
 #include <XrdVersion.hh>
 #include <cstdlib>
 #include <iostream>
-#include "RedirPlugin.hh"
+#include <stdexcept>
+#include <sys/stat.h>
+#include <unistd.h>
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
 //------------------------------------------------------------------------------
-extern "C" XrdCmsClient *XrdCmsGetClient(XrdSysLogger *Logger,
-                                         int opMode,
-                                         int myPort,
-                                         XrdOss *theSS)
-{
-    RedirPlugin *plugin = new RedirPlugin(Logger, opMode, myPort, theSS);
-    return plugin;
+extern "C" XrdCmsClient *XrdCmsGetClient(XrdSysLogger *Logger, int opMode,
+                                         int myPort, XrdOss *theSS) {
+  RedirPlugin *plugin = new RedirPlugin(Logger, opMode, myPort, theSS);
+  return plugin;
 }
 
 //------------------------------------------------------------------------------
 //! Constructor
 //------------------------------------------------------------------------------
-RedirPlugin::RedirPlugin(XrdSysLogger *Logger,
-                         int opMode,
-                         int myPort,
+RedirPlugin::RedirPlugin(XrdSysLogger *Logger, int opMode, int myPort,
                          XrdOss *theSS)
-    : XrdCmsClient(amLocal)
-{
-    nativeCmsFinder = new XrdCmsFinderRMT(Logger, opMode, myPort);
-    this->theSS = theSS;
+    : XrdCmsClient(amLocal) {
+  nativeCmsFinder = new XrdCmsFinderRMT(Logger, opMode, myPort);
+  this->theSS = theSS;
 }
+
 //------------------------------------------------------------------------------
 //! Destructor
 //------------------------------------------------------------------------------
-RedirPlugin::~RedirPlugin()
-{
-    delete nativeCmsFinder;
-}
+RedirPlugin::~RedirPlugin() { delete nativeCmsFinder; }
 
 //------------------------------------------------------------------------------
 //! Configure the nativeCmsFinder
 //------------------------------------------------------------------------------
-int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo)
-{
-    if(nativeCmsFinder)
-        return nativeCmsFinder->Configure(cfn, Parms, EnvInfo);
-    return 0;
+int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo) {
+
+  if (nativeCmsFinder) {
+    loadConfig(cfn);
+    return nativeCmsFinder->Configure(cfn, Parms, EnvInfo);
+  }
+  return 0;
+}
+
+void RedirPlugin::loadConfig(const char *cfn) {
+
+  XrdOucStream Config;
+  int cfgFD;
+  char *var;
+
+  if ((cfgFD = open(cfn, O_RDONLY, 0)) < 0) {
+    return;
+  }
+
+  Config.Attach(cfgFD);
+  while ((var = Config.GetMyFirstWord())) {
+    if (strcmp(var, "Redir.prefix") == 0) {
+      var += 13;
+      prefix = std::string(Config.GetWord());
+      break;
+    }
+  }
+  if (prefix.empty())
+    throw std::runtime_error("Redir.prefix not set in configuration file");
+  Config.Close();
 }
 
 //------------------------------------------------------------------------------
@@ -59,55 +77,50 @@ int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo)
 //! @Param EnvInfo: Contains the secEnv, which contains the addressInfo of the
 //!                 Client. Checked to see if redirect to local conditions apply
 //------------------------------------------------------------------------------
-int RedirPlugin::Locate(XrdOucErrInfo &Resp,
-                        const char *path,
-                        int flags,
-                        XrdOucEnv *EnvInfo)
-{
-    XrdCl::URL *target = new XrdCl::URL(path);
-    std::cout << "path is: " << path << std::endl;
-    std::string pathLookup = target->GetPath();
-    std::cout << pathLookup << std::endl;
-    if(const char *proxyprefix = std::getenv("PROXYPREFIX")) {
-        std::cout << "Your PROXYPREFIX is: " << proxyprefix << '\n';
-        int rc = 0;                // figure out exact meaning
-        int maxPathLength = 4096;  // total acceptable buffer length,
-        // which must be longer than localroot and filename concatenated
-        char *buff = new char[maxPathLength];
-        const char *ppath =
-            theSS->Lfn2Pfn(pathLookup.c_str(), buff, maxPathLength, rc);
-        std::cout << ppath << std::endl;
-
-        if(access(ppath, F_OK)) {  // File found
-            std::cout << "File exists, redirect to local" << std::endl;
-            Resp.setErrInfo(-1,
-                            ppath);  // set info which will be sent to client
-            return SFS_REDIRECT;
-        } else {
-            char proxypath[1000];            // array to hold the result.
-            strcpy(proxypath, proxyprefix);  // copy string one into the result.
-            strcat(proxypath, path);
-            std::cout << "File doesn't exist, redirect to proxy" << std::endl;
-            Resp.setErrInfo(
-                target->GetPort(),//TO DO: proxy port needed, not target port
-                proxypath);  // set info which will be sent to client
-            return SFS_REDIRECT;
-        }
-    }
+int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
+                        XrdOucEnv *EnvInfo) {
+  std::string rpath(path);
+  rpath.erase(0, 1);
+  XrdCl::URL target(rpath);
+  std::string pathLookup = target.GetPath();
+  size_t splitpos = pathLookup.find("/");
+  if (splitpos == string::npos)
     return SFS_ERROR;
+
+  size_t slen = pathLookup.size();
+  XrdCl::URL proxyTarget(std::string("root://") + prefix + std::string("/x") +
+                         pathLookup.substr(0, splitpos));
+  int rc = 0;               // figure out exact meaning
+  int maxPathLength = 4096; // total acceptable buffer length,
+  // which must be longer than localroot and filename concatenated
+  char *buff = new char[maxPathLength];
+  const char *ppath =
+      theSS->Lfn2Pfn(pathLookup.substr(splitpos, slen - splitpos).c_str(), buff,
+                     maxPathLength, rc);
+
+  if (access(ppath, F_OK) == 0) { // File found
+    std::cerr << "File exists, redirect to local" << std::endl;
+    Resp.setErrInfo(-1, ppath); // set info which will be sent to client
+    return SFS_REDIRECT;
+  } else {
+    std::cerr << "File doesn't exist, redirect to proxy" << std::endl;
+    Resp.setErrInfo(proxyTarget.GetPort(),
+                    proxyTarget.GetHostName()
+                        .c_str()); // set info which will be sent to client
+    return SFS_REDIRECT;
+  }
+  return SFS_ERROR;
 }
 
 //------------------------------------------------------------------------------
 //! Space
 //! Calls nativeCmsFinder->Space
 //------------------------------------------------------------------------------
-int RedirPlugin::Space(XrdOucErrInfo &Resp,
-                       const char *path,
-                       XrdOucEnv *EnvInfo)
-{
-    if(nativeCmsFinder)
-        return nativeCmsFinder->Space(Resp, path, EnvInfo);
-    return 0;
+int RedirPlugin::Space(XrdOucErrInfo &Resp, const char *path,
+                       XrdOucEnv *EnvInfo) {
+  if (nativeCmsFinder)
+    return nativeCmsFinder->Space(Resp, path, EnvInfo);
+  return 0;
 }
 
 XrdVERSIONINFO(XrdCmsGetClient, RedirPlugin);
