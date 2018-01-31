@@ -1,7 +1,11 @@
 #include "RedirPlugin.hh"
+#include <XrdOuc/XrdOucStream.hh>
+#include <XrdOuc/XrdOucString.hh>
 #include <XrdVersion.hh>
-
+#include <fcntl.h>
 #include <iostream>
+#include <stdexcept>
+
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
 //------------------------------------------------------------------------------
@@ -29,9 +33,35 @@ RedirPlugin::~RedirPlugin() { delete nativeCmsFinder; }
 //! Configure the nativeCmsFinder
 //------------------------------------------------------------------------------
 int RedirPlugin::Configure(const char *cfn, char *Parms, XrdOucEnv *EnvInfo) {
+  loadConfig(cfn);
   if (nativeCmsFinder)
     return nativeCmsFinder->Configure(cfn, Parms, EnvInfo);
   return 0;
+}
+
+void RedirPlugin::loadConfig(const char *filename) {
+
+  XrdOucStream Config;
+  int cfgFD;
+  char *var;
+
+  if ((cfgFD = open(filename, O_RDONLY, 0)) < 0) {
+    return;
+  }
+
+  Config.Attach(cfgFD);
+  while ((var = Config.GetMyFirstWord())) {
+    if (strcmp(var, "RedirPlugin.Localroot") == 0) {
+      var += 21;
+      localroot = std::string(Config.GetWord());
+      break;
+    }
+  }
+  std::cerr << "Localroot:" << localroot << std::endl;
+  if (localroot.empty())
+    throw std::runtime_error(
+        "Redirplugin.Localroot not set in configuration file");
+  Config.Close();
 }
 
 //------------------------------------------------------------------------------
@@ -62,10 +92,10 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
     XrdNetAddr target(-1); // port is necessary, but can be any
     target.Set(Resp.getErrText());
     bool privTarget = target.isPrivate();
-    std::cout << "target is private: " << privTarget << "\n"
-              << "client is private: " << privClient << std::endl;
     if (privClient && privTarget) {
-      Resp.setErrInfo(-1, ppath); // set info which will be sent to client
+      Resp.setErrInfo(-1,
+                      (localroot + std::string(ppath))
+                          .c_str()); // set info which will be sent to client
       return SFS_REDIRECT;
     }
   }
