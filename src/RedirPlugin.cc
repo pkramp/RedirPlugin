@@ -57,7 +57,7 @@ void RedirPlugin::loadConfig(const char *filename) {
       break;
     }
   }
-  std::cerr << "Localroot:" << localroot << std::endl;
+  std::cout << "RedirPlugin.LocalRoot set to:" << localroot << std::endl;
   if (localroot.empty())
     throw std::runtime_error(
         "Redirplugin.Localroot not set in configuration file");
