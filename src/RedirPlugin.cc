@@ -84,8 +84,11 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
     bool privClient = EnvInfo->secEnv()->addrInfo->isPrivate();
     rcode = nativeCmsFinder->Locate(Resp, path, flags,
                                     EnvInfo); // get regular target host
-    int rc = 0;                               // figure out exact meaning
-    int maxPathLength = 4096;                 // total acceptable buffer length,
+    if (flags & SFS_O_STAT)
+      return rcode; // always use native function if you want to do stat
+
+    int rc = 0;               // figure out exact meaning
+    int maxPathLength = 4096; // total acceptable buffer length,
     // which must be longer than localroot and filename concatenated
     char *buff = new char[maxPathLength];
     const char *ppath = theSS->Lfn2Pfn(path, buff, maxPathLength, rc);
