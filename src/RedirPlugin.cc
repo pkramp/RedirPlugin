@@ -84,8 +84,12 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
     bool privClient = EnvInfo->secEnv()->addrInfo->isPrivate();
     rcode = nativeCmsFinder->Locate(Resp, path, flags,
                                     EnvInfo); // get regular target host
-    if (flags & SFS_O_STAT)
-      return rcode; // always use native function if you want to do stat
+
+    int pversion = Resp.getUCap();
+    pversion &= 0x0000ffff; // get protocol version
+    if ((flags & SFS_O_STAT) ||
+        pversion < 784) // redirect in case of locate and in case of lower
+      return rcode;     // always use native function if you want to do stat
 
     int rc = 0;               // figure out exact meaning
     int maxPathLength = 4096; // total acceptable buffer length,
