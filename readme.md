@@ -5,7 +5,10 @@ This only applies if both client and the normally used dataserver have private I
 The source tree includes private header files of the XrdCms source tree(namely XrdCmsFinder.hh) and needs to be kept in sync with the XRootD version source used!
 
 # Plug-in configuration
-This plug-in currently has no configuration
+Necessary configuration in XrootD Manager/Redirector Config:
+redirplugin.localroot /your/localroot/
+Optional:
+redirplugin.readonlyredirect true/false
 
 # Install and tests
 To compile the plug-in, you need to set the XRD_PATH environmental variable to the toplevel of your XRootD installation.
