@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <stdexcept>
+#include <algorithm>
 
 //------------------------------------------------------------------------------
 //! Necessary implementation for XRootD to get the Plug-in
@@ -23,6 +24,7 @@ RedirPlugin::RedirPlugin(XrdSysLogger *Logger, int opMode, int myPort,
     : XrdCmsClient(amLocal) {
   nativeCmsFinder = new XrdCmsFinderRMT(Logger, opMode, myPort);
   this->theSS = theSS;
+  readOnlyredirect = false;
 }
 //------------------------------------------------------------------------------
 //! Destructor
@@ -43,21 +45,25 @@ void RedirPlugin::loadConfig(const char *filename) {
 
   XrdOucStream Config;
   int cfgFD;
-  char *var;
+  char *word;
 
   if ((cfgFD = open(filename, O_RDONLY, 0)) < 0) {
     return;
   }
-
   Config.Attach(cfgFD);
-  while ((var = Config.GetMyFirstWord())) {
-    if (strcmp(var, "RedirPlugin.Localroot") == 0) {
-      var += 21;
+  while ((word = Config.GetFirstWord(true))) {//get word in lower case
+    if (strcmp(word, "redirplugin.localroot") == 0) {
       localroot = std::string(Config.GetWord());
-      break;
+    }
+    //search for readonlyredirect, 
+    //which only allows read calls to be redirected to local
+    else if(strcmp(word, "redirplugin.readonlyredirect") == 0){
+        // get next word in lower case
+      std::string readWord = std::string(Config.GetWord(true));//to lower case
+      if(readWord.find("true")!=string::npos)
+          readOnlyredirect = true;
     }
   }
-  std::cout << "RedirPlugin.LocalRoot set to:" << localroot << std::endl;
   if (localroot.empty())
     throw std::runtime_error(
         "Redirplugin.Localroot not set in configuration file");
@@ -65,6 +71,8 @@ void RedirPlugin::loadConfig(const char *filename) {
 }
 
 //------------------------------------------------------------------------------
+//! Preconditions:
+//! Client Protocol Version is >= 784
 //! Locate the file, get Client IP and target IP.
 //! 1) If both are private, redirect to local does apply.
 //!    set ErrInfo of param Resp and return SFS_REDIRECT.
@@ -82,14 +90,21 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
   int rcode = 0;
   if (nativeCmsFinder) {
     bool privClient = EnvInfo->secEnv()->addrInfo->isPrivate();
-    rcode = nativeCmsFinder->Locate(Resp, path, flags,
-                                    EnvInfo); // get regular target host
+    // get regular target host
+    rcode = nativeCmsFinder->Locate(Resp, path, flags, EnvInfo); 
 
     int pversion = Resp.getUCap();
     pversion &= 0x0000ffff; // get protocol version
-    if ((flags & SFS_O_STAT) ||
-        pversion < 784) // redirect in case of locate and in case of lower
-      return rcode;     // always use native function if you want to do stat
+    
+    if (pversion < 784)// native redirect in case of old protocol version
+        return rcode;
+    if (flags & SFS_O_STAT)
+        return rcode;     // always use native function if you want to do stat
+
+    if(readOnlyredirect){
+        if (!(flags == SFS_O_RDONLY))
+            return rcode;
+    }
 
     int rc = 0;               // figure out exact meaning
     int maxPathLength = 4096; // total acceptable buffer length,
@@ -100,13 +115,11 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
     target.Set(Resp.getErrText());
     bool privTarget = target.isPrivate();
     if (privClient && privTarget) {
-      Resp.setErrInfo(-1,
-                      (localroot + std::string(ppath))
-                          .c_str()); // set info which will be sent to client
+      // set info which will be sent to client
+      Resp.setErrInfo(-1, (localroot + std::string(ppath)).c_str());
       return SFS_REDIRECT;
     }
   }
-
   return rcode;
 }
 

@@ -45,6 +45,7 @@ public:
   XrdCmsClient *nativeCmsFinder;
   XrdOss *theSS;
   std::string localroot;
+  bool readOnlyredirect;
 };
 
 #endif // REDIRPLUGIN_HH_
