@@ -46,6 +46,7 @@ public:
   XrdOss *theSS;
   std::string localroot;
   bool readOnlyredirect;
+  bool DEBUG;
 };
 
 #endif // REDIRPLUGIN_HH_

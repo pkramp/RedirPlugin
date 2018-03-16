@@ -25,6 +25,7 @@ RedirPlugin::RedirPlugin(XrdSysLogger *Logger, int opMode, int myPort,
   nativeCmsFinder = new XrdCmsFinderRMT(Logger, opMode, myPort);
   this->theSS = theSS;
   readOnlyredirect = false;
+  DEBUG = false;
 }
 //------------------------------------------------------------------------------
 //! Destructor
@@ -62,6 +63,12 @@ void RedirPlugin::loadConfig(const char *filename) {
       std::string readWord = std::string(Config.GetWord(true));//to lower case
       if(readWord.find("true")!=string::npos)
           readOnlyredirect = true;
+    }
+    else if(strcmp(word, "redirplugin.debug") == 0){
+        // get next word in lower case
+      std::string readWord = std::string(Config.GetWord(true));//to lower case
+      if(readWord.find("true")!=string::npos)
+          DEBUG = true;
     }
   }
   if (localroot.empty())
@@ -101,10 +108,9 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
     if (flags & SFS_O_STAT)
         return rcode;     // always use native function if you want to do stat
 
-    if(readOnlyredirect){
-        if (!(flags == SFS_O_RDONLY))
-            return rcode;
-    }
+    if(readOnlyredirect && !(flags == SFS_O_RDONLY))
+        return rcode;
+    
 
     int rc = 0;               // figure out exact meaning
     int maxPathLength = 4096; // total acceptable buffer length,

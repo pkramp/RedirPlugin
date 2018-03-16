@@ -8,7 +8,8 @@ The source tree includes private header files of the XrdCms source tree(namely X
 Necessary configuration in XrootD Manager/Redirector Config:
 redirplugin.localroot /your/localroot/
 Optional:
-redirplugin.readonlyredirect true/false
+redirplugin.readonlyredirect true/false/True/False
+redirplugin.debug true/false/True/False
 
 # Install and tests
 To compile the plug-in, you need to set the XRD_PATH environmental variable to the toplevel of your XRootD installation.
