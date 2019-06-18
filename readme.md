@@ -18,17 +18,7 @@ You can compile the plug-in library with :
 ```shell
 make
 ```
-You can run one simple bash-tests using xrdcp with :
-```shell
-./tests/Redir_xrdcptest.sh debug
-```
-# Usage
-When using this plug-in, all high level XRootD calls (xrdcp, from TNetXNGFile in ROOT, etc.) should instead be "redirected" to a file available in the local file system.
-
-# License
-The XrdOpenLocal plug-in is distributed under the terms of the GNU Lesser Public Licence version 3 (LGPLv3)
-
-# ToDo's
-Configurable address range in which local redirection applies
+# Potential improvements
+Configurable ip-address range in which local redirection applies
 
 
