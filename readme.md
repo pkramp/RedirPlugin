@@ -15,10 +15,6 @@ You can compile the plug-in library with :
 cmake3 .
 make
 ```
-You can run one simple bash-tests using xrdcp with :
-```shell
-./tests/Redir_xrdcptest.sh debug
-```
 # Usage
 When using this plug-in, all high level XRootD calls (xrdcp, from TNetXNGFile in ROOT, etc.) should instead be "redirected" to a file available in the local file system.
 
