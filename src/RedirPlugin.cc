@@ -82,12 +82,12 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
   std::string rpath(path);
   rpath.erase(0, 1);
   XrdCl::URL target(rpath);
-  std::string pathLookup = target.GetPath();
+  std::string pathLookup = target.GetURL();
   size_t splitpos = pathLookup.find("/");
-  if (splitpos == string::npos)
+  if (splitpos == string::npos) 
     return SFS_ERROR;
 
-  size_t slen = pathLookup.size();
+  //size_t slen = pathLookup.size();
   XrdCl::URL proxyTarget(std::string("root://") + prefix + std::string("/x") +
                          pathLookup.substr(0, splitpos));
   int rc = 0;               // figure out exact meaning
@@ -95,7 +95,7 @@ int RedirPlugin::Locate(XrdOucErrInfo &Resp, const char *path, int flags,
   // which must be longer than localroot and filename concatenated
   char *buff = new char[maxPathLength];
   const char *ppath =
-      theSS->Lfn2Pfn(pathLookup.substr(splitpos, slen - splitpos).c_str(), buff,
+      theSS->Lfn2Pfn(path, buff,
                      maxPathLength, rc);
 
   if (access(ppath, F_OK) == 0) { // File found
