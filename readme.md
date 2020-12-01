@@ -8,10 +8,11 @@ The source tree includes private header files of the XrdCms source tree(namely X
 This plug-in currently has no configuration
 
 # Install and tests
-To compile the plug-in, you need to set the XRD_PATH environmental variable to the toplevel of your XRootD installation.
+To compile the plug-in, you need to set the XROOTD_PATH environmental variable to the toplevel of your XRootD installation.
 
 You can compile the plug-in library with :
 ```shell
+cmake3 .
 make
 ```
 You can run one simple bash-tests using xrdcp with :
